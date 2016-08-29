@@ -7,7 +7,7 @@ from ddt import data, ddt, unpack
 
 from edx.analytics.tasks.tests import unittest
 from edx.analytics.tasks.util.record import (
-    Record, StringField, IntegerField, DateField, DateTimeField, FloatField, StringListField, BooleanField,
+    Record, StringField, IntegerField, DateField, DateTimeField, FloatField, DelimitedStringField, BooleanField,
     DEFAULT_NULL_VALUE,
 )
 
@@ -485,8 +485,8 @@ class StringFieldTest(unittest.TestCase):
 
 
 @ddt
-class StringListFieldTest(unittest.TestCase):
-    """Tests for StringListField"""
+class DelimitedStringFieldTest(unittest.TestCase):
+    """Tests for DelimitedStringField"""
 
     @data(
         # String values
@@ -502,22 +502,21 @@ class StringListFieldTest(unittest.TestCase):
     )
     @unpack
     def test_serialize(self, value, expected_value):
-        test_record = StringListField()
+        test_record = DelimitedStringField()
         self.assertEquals(test_record.serialize_to_string(value), expected_value)
 
     @data(
         # String values
-        ('abc', ['abc']),
-        ('', ['']),
-        # List values
-        ('a\0b\0c', ['a', 'b', 'c']),
-        ('', ['']),
+        ('abc', ('abc',)),
+        ('', ('',)),
+        # List value
+        ('a\0b\0c', ('a', 'b', 'c')),
         # Null values (nullable=True by default)
         (DEFAULT_NULL_VALUE, None),
     )
     @unpack
     def test_deserialize(self, value, expected_value):
-        test_record = StringListField()
+        test_record = DelimitedStringField()
         self.assertEquals(test_record.deserialize_from_string(value), expected_value)
 
     @data(
@@ -526,29 +525,29 @@ class StringListFieldTest(unittest.TestCase):
     )
     @unpack
     def test_serialize_nullable(self, expected_str, nullable):
-        test_record = StringListField(nullable=nullable)
+        test_record = DelimitedStringField(nullable=nullable)
         self.assertEquals(test_record.serialize_to_string(None), expected_str)
 
     @data(
         (None, True),
-        (['\\N'], False),  # '\\N' is just a string if nullable=False
+        (('\\N',), False),  # '\\N' is just a string if nullable=False
     )
     @unpack
     def test_deserialize_nullable(self, expected_value, nullable):
-        test_record = StringListField(nullable=nullable)
+        test_record = DelimitedStringField(nullable=nullable)
         self.assertEquals(test_record.deserialize_from_string(DEFAULT_NULL_VALUE), expected_value)
 
     def test_sql_type(self):
-        self.assertEqual(StringListField().sql_type, 'VARCHAR')
+        self.assertEqual(DelimitedStringField().sql_type, 'VARCHAR')
 
     def test_hive_type(self):
-        self.assertEqual(StringListField().hive_type, 'STRING')
+        self.assertEqual(DelimitedStringField().hive_type, 'STRING')
 
     def test_elasticsearch_type(self):
-        self.assertEqual(StringListField().elasticsearch_type, 'string')
+        self.assertEqual(DelimitedStringField().elasticsearch_type, 'string')
 
     def test_delimiter(self):
-        self.assertEqual(StringListField().delimiter, '\0')
+        self.assertEqual(DelimitedStringField().delimiter, '\0')
 
 
 @ddt

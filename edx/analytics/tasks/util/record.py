@@ -502,8 +502,8 @@ class StringField(Field):  # pylint: disable=abstract-method
             return 'VARCHAR'
 
 
-class StringListField(Field):
-    """Represents a list of strings."""
+class DelimitedStringField(Field):
+    """Represents a list of strings, stored as a single delimited string."""
 
     hive_type = 'STRING'
     sql_base_type = 'VARCHAR'
@@ -523,7 +523,7 @@ class StringListField(Field):
         """Unpack delimited strings into an array."""
         if self.nullable and string_value == DEFAULT_NULL_VALUE:
             return None
-        return string_value.split(self.delimiter)
+        return tuple(string_value.split(self.delimiter))
 
 
 class BooleanField(Field):
