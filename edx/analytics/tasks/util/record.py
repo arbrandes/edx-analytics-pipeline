@@ -531,24 +531,28 @@ class DelimitedStringField(Field):
 class BooleanField(Field):
     """Represents a field that contains a boolean."""
 
-    hive_type = sql_base_type = 'BOOLEAN'
+    hive_type = 'TINYINT'
+    sql_base_type = 'BOOLEAN'
     elasticsearch_type = 'boolean'
 
     def serialize_to_string(self, value):
-        """Returns a string representation of the boolean value, or NULL if nullable."""
-        if not self.nullable or value is not None:
-            value = bool(value)
-        elif value is None:
-            return DEFAULT_NULL_VALUE
-        return unicode(value)
+        """Returns '1' for true values, '0' for false."""
+        return '1' if value else '0'
 
     def deserialize_from_string(self, string_value):
-        """Return a bool value, or NULL if nullable, from the given string."""
-        if self.nullable and string_value == DEFAULT_NULL_VALUE:
+        """Return a bool value from the given string."""
+        if string_value is None:
             return None
-        elif hasattr(string_value, 'title') and string_value.title() == 'False':
-            return False
-        return bool(string_value)
+        elif string_value == '1':
+            return True
+        return False
+
+    def validate(self, value):
+        """Accepts boolean values."""
+        validation_errors = super(BooleanField, self).validate(value)
+        if not(value is None or isinstance(value, bool)):
+            validation_errors.append('The value is not a bool')
+        return validation_errors
 
 
 class IntegerField(Field):  # pylint: disable=abstract-method

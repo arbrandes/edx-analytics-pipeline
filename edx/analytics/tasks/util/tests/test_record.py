@@ -8,7 +8,6 @@ from ddt import data, ddt, unpack
 from edx.analytics.tasks.tests import unittest
 from edx.analytics.tasks.util.record import (
     Record, StringField, IntegerField, DateField, DateTimeField, FloatField, DelimitedStringField, BooleanField,
-    DEFAULT_NULL_VALUE,
 )
 
 UNICODE_STRING = u'\u0669(\u0361\u0e4f\u032f\u0361\u0e4f)\u06f6'
@@ -544,27 +543,31 @@ class BooleanFieldTest(unittest.TestCase):
     """Tests for BooleanField"""
 
     @data(
-        # True values
-        (-1, 'True'),
-        (1, 'True'),
-        (10, 'True'),
-        (True, 'True'),
-        ('True', 'True'),
-        (u'True', 'True'),
-        ('abc', 'True'),
-        (['a'], 'True'),
-        ({'a': 1}, 'True'),
-        ('False', 'True'),
-        (u'False', 'True'),
-        ('None', 'True'),
-        # False values
-        (0, 'False'),
-        (False, 'False'),
-        ('', 'False'),
-        ([], 'False'),
-        ({}, 'False'),
-        # Null value (nullable=True by default)
-        (None, DEFAULT_NULL_VALUE),
+        True,
+        False,
+        None,
+    )
+    def test_validate_success(self, value):
+        test_record = BooleanField()
+        self.assertEqual(len(test_record.validate(value)), 0)
+
+    @data(
+        1,
+        0,
+        -1,
+        10,
+        'True',
+        'true',
+        'False',
+        'false',
+    )
+    def test_validate_error(self, value):
+        test_record = BooleanField()
+        self.assertEqual(len(test_record.validate(value)), 1)
+
+    @data(
+        (True, '1'),
+        (False, '0'),
     )
     @unpack
     def test_serialize(self, value, expected_value):
@@ -573,47 +576,16 @@ class BooleanFieldTest(unittest.TestCase):
             self.assertEquals(test_record.serialize_to_string(value), expected_value)
 
     @data(
-        # True values
-        ('True', True),
-        (u'True', True),
-        ('true', True),
-        (u'true', True),
-        ('random', True),
-        (u'random', True),
-        (1, True),
-        # False values
-        ('False', False),
-        (u'False', False),
-        ('false', False),
-        (u'false', False),
-        ('', False),
-        (u'', False),
-        (0, False),
-        # Null values (nullable=True by default)
-        (DEFAULT_NULL_VALUE, None),
+        ('1', True),
+        (u'1', True),
+        ('0', False),
+        (u'0', False),
+        (None, None),
     )
     @unpack
     def test_deserialize(self, value, expected_value):
         for test_record in (BooleanField(), BooleanField(nullable=True)):
             self.assertEquals(test_record.deserialize_from_string(value), expected_value)
-
-    @data(
-        (DEFAULT_NULL_VALUE, True),
-        ('False', False),  # None is just false if nullable=False
-    )
-    @unpack
-    def test_serialize_none_nullable(self, expected_str, nullable):
-        test_record = BooleanField(nullable=nullable)
-        self.assertEquals(test_record.serialize_to_string(None), expected_str)
-
-    @data(
-        (None, True),
-        (True, False),  # '\\N' is just a string if nullable=False
-    )
-    @unpack
-    def test_deserialize_none_nullable(self, expected_value, nullable):
-        test_record = BooleanField(nullable=nullable)
-        self.assertEquals(test_record.deserialize_from_string(DEFAULT_NULL_VALUE), expected_value)
 
     def test_sql_type(self):
         self.assertEqual(BooleanField().sql_type, 'BOOLEAN')
