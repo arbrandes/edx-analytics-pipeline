@@ -489,16 +489,27 @@ class DelimitedStringFieldTest(unittest.TestCase):
     """Tests for DelimitedStringField"""
 
     @data(
-        # String values
-        ('abc', 'abc'),
-        ('', ''),
-        # List values
-        (['a', 'b', 'c'], 'a\0b\0c'),
-        (('a', 'b', 'c'), 'a\0b\0c'),
-        ([], ''),
+        (),
+        ('a', 'b', 'c'),
+        None,
+    )
+    def test_validate_success(self, value):
+        test_record = DelimitedStringField()
+        self.assertEqual(len(test_record.validate(value)), 0)
+
+    @data(
+        '',
+        'abc',
+        ['a', 'b', 'c'],
+        [],
+    )
+    def test_validate_error(self, value):
+        test_record = DelimitedStringField()
+        self.assertEqual(len(test_record.validate(value)), 1)
+
+    @data(
         ((), ''),
-        # Null value (nullable=True by default)
-        (None, DEFAULT_NULL_VALUE),
+        (('a', 'b', 'c'), 'a\0b\0c'),
     )
     @unpack
     def test_serialize(self, value, expected_value):
@@ -506,36 +517,14 @@ class DelimitedStringFieldTest(unittest.TestCase):
         self.assertEquals(test_record.serialize_to_string(value), expected_value)
 
     @data(
-        # String values
-        ('abc', ('abc',)),
         ('', ('',)),
-        # List value
         ('a\0b\0c', ('a', 'b', 'c')),
-        # Null values (nullable=True by default)
-        (DEFAULT_NULL_VALUE, None),
+        (None, None),
     )
     @unpack
     def test_deserialize(self, value, expected_value):
         test_record = DelimitedStringField()
         self.assertEquals(test_record.deserialize_from_string(value), expected_value)
-
-    @data(
-        (DEFAULT_NULL_VALUE, True),
-        ('None', False),  # None is just string if nullable=False
-    )
-    @unpack
-    def test_serialize_nullable(self, expected_str, nullable):
-        test_record = DelimitedStringField(nullable=nullable)
-        self.assertEquals(test_record.serialize_to_string(None), expected_str)
-
-    @data(
-        (None, True),
-        (('\\N',), False),  # '\\N' is just a string if nullable=False
-    )
-    @unpack
-    def test_deserialize_nullable(self, expected_value, nullable):
-        test_record = DelimitedStringField(nullable=nullable)
-        self.assertEquals(test_record.deserialize_from_string(DEFAULT_NULL_VALUE), expected_value)
 
     def test_sql_type(self):
         self.assertEqual(DelimitedStringField().sql_type, 'VARCHAR')

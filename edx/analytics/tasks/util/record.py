@@ -512,18 +512,20 @@ class DelimitedStringField(Field):
 
     def serialize_to_string(self, value):
         """Flatten array values to a delimited string."""
-        if not self.nullable or value is not None:
-            if isinstance(value, (list, tuple)):
-                value = self.delimiter.join(value)
-        elif value is None:
-            return DEFAULT_NULL_VALUE
-        return unicode(value)
+        return self.delimiter.join(value)
 
     def deserialize_from_string(self, string_value):
         """Unpack delimited strings into an array."""
-        if self.nullable and string_value == DEFAULT_NULL_VALUE:
+        if string_value is None:
             return None
         return tuple(string_value.split(self.delimiter))
+
+    def validate(self, value):
+        """Accepts tuple values."""
+        validation_errors = super(DelimitedStringField, self).validate(value)
+        if not(value is None or isinstance(value, tuple)):
+            validation_errors.append('The value is not a tuple')
+        return validation_errors
 
 
 class BooleanField(Field):
