@@ -1,6 +1,7 @@
 """Test the typed record utilities"""
 
 import datetime
+import dateutil
 import pickle
 
 from ddt import data, ddt, unpack
@@ -12,7 +13,7 @@ from edx.analytics.tasks.util.record import (
 
 UNICODE_STRING = u'\u0669(\u0361\u0e4f\u032f\u0361\u0e4f)\u06f6'
 UTF8_BYTE_STRING = UNICODE_STRING.encode('utf8')
-
+UTC = dateutil.tz.tzutc()
 
 @ddt
 class RecordTestCase(unittest.TestCase):
@@ -200,7 +201,7 @@ class RecordTestCase(unittest.TestCase):
                 'dateTime': {
                     'type': 'date',
                     'index': 'not_analyzed',
-                    'format': 'strict_date_time_no_millis',
+                    'format': 'yyyy-MM-dd HH:mm:ss.SSSSSS',
                 },
             }
         )
@@ -656,46 +657,70 @@ class DateTimeFieldTest(unittest.TestCase):
     """Tests for DateTimeField"""
 
     @data(
-        datetime.datetime.now(),
-        datetime.datetime.now().strftime(DateTimeField.string_format),
-        '2015-11-01',
-        '2015-11-01 10:10',
-        None
+        datetime.datetime.now(UTC),
+        datetime.datetime(2016, 10, 10, tzinfo=UTC),
+        None,
     )
     def test_validate_success(self, value):
         test_record = DateTimeField()
         self.assertEqual(len(test_record.validate(value)), 0)
 
     @data(
-        0,
-        False,
-        1.0,
-        'abc',
-        object()
+        (0, 'The value is not a datetime'),
+        (False, 'The value is not a datetime'),
+        (1.0, 'The value is not a datetime'),
+        ('abc', 'The value is not a datetime'),
+        ('2015-11-01', 'The value is not a datetime'),
+        ('2015-11-01 10:10', 'The value is not a datetime'),
+        (object(), 'The value is not a datetime'),
+        (datetime.datetime.now(), 'The value is a naive datetime.'),
+        (datetime.datetime(2016, 10, 10), 'The value is a naive datetime.'),
+        (datetime.datetime(2016, 10, 10, 1, 2, 3, 4), 'The value is a naive datetime.'),
+        (datetime.datetime(2016, 10, 10, tzinfo=dateutil.tz.gettz('America/Los_Angeles')),
+         'The value must use UTC timezone.'),
     )
-    def test_validate_error(self, value):
+    @unpack
+    def test_validate_error(self, value, expected_error):
         test_record = DateTimeField()
-        self.assertEqual(len(test_record.validate(value)), 1)
+        errors = test_record.validate(value)
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0], expected_error)
 
-    def test_sql_type(self):
-        self.assertEqual(DateTimeField().sql_type, 'DATETIME')
+    @data(
+        ('2015-11-01T00:00:00Z', datetime.datetime(2015, 11, 1, tzinfo=UTC)),
+        ('2015-11-01 00:00:00.0', datetime.datetime(2015, 11, 1, tzinfo=UTC)),
+        ('2015-11-11 01:20:30.123456', datetime.datetime(2015, 11, 11, 1, 20, 30, 123456, UTC)),
+        ('2015-11-11T01:20:30.123456Z', datetime.datetime(2015, 11, 11, 1, 20, 30, 123456, UTC)),
+        (None, None),
+    )
+    @unpack
+    def test_deserialize_from_string(self, string, expected):
+        self.assertEqual(DateTimeField().deserialize_from_string(string), expected)
 
-    def test_hive_type(self):
-        self.assertEqual(DateTimeField().hive_type, 'STRING')
+    @data(
+        (datetime.datetime(2015, 11, 1, tzinfo=UTC), '2015-11-01 00:00:00.000000'),
+        (datetime.datetime(2015, 11, 11, 1, 20, 30, 123456, UTC), '2015-11-11 01:20:30.123456'),
+    )
+    @unpack
+    def test_serialize_to_string(self, date, expected):
+        self.assertEqual(DateTimeField().serialize_to_string(date), expected)
 
-    def test_elasticsearch_type(self):
-        self.assertEqual(DateTimeField().elasticsearch_type, 'date')
 
-    def test_elasticsearch_format(self):
-        self.assertEqual(DateTimeField().elasticsearch_format, 'strict_date_time_no_millis')
+class DateTimeFieldTzUtcTest(unittest.TestCase):
+    """Tests for DateTimeField.TzUtc"""
+    def setUp(self):
+        super(DateTimeFieldTzUtcTest, self).setUp()
+        self.utc_tz = DateTimeField.TzUtc()
+        self.now = datetime.datetime.now()
 
-    def test_deserialize_from_string(self):
-        self.assertEqual(DateTimeField().deserialize_from_string('2015-11-01T00:00:00.0'),
-                         datetime.datetime(2015, 11, 1))
+    def test_utcoffset(self):
+        self.assertEquals(self.utc_tz.utcoffset(self.now).total_seconds(), 0)
 
-    def test_serialize_to_string(self):
-        self.assertEqual(DateTimeField().serialize_to_string(datetime.datetime(2015, 11, 1)),
-                         '2015-11-01T00:00:00.000000')
+    def test_dst(self):
+        self.assertEquals(self.utc_tz.dst(self.now).total_seconds(), 0)
+
+    def test_tzname(self):
+        self.assertEquals(self.utc_tz.tzname(self.now), 'UTC')
 
 
 @ddt
