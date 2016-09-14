@@ -587,15 +587,6 @@ class BooleanFieldTest(unittest.TestCase):
         for test_record in (BooleanField(), BooleanField(nullable=True)):
             self.assertEquals(test_record.deserialize_from_string(value), expected_value)
 
-    def test_sql_type(self):
-        self.assertEqual(BooleanField().sql_type, 'BOOLEAN')
-
-    def test_hive_type(self):
-        self.assertEqual(BooleanField().hive_type, 'BOOLEAN')
-
-    def test_elasticsearch_type(self):
-        self.assertEqual(BooleanField().elasticsearch_type, 'boolean')
-
 
 @ddt
 class IntegerFieldTest(unittest.TestCase):
