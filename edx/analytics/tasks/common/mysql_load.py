@@ -323,10 +323,6 @@ class MysqlInsertTask(MysqlInsertTaskMixin, luigi.Task):
             # create table only if necessary:
             self.create_table(connection)
 
-            # This prevents gap locks when updating the marker table, enabling us to insert and update records in that
-            # table with impunity from other sessions.
-            connection.cursor().execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
-
             self.init_copy(connection)
             cursor = connection.cursor()
             self.insert_rows(cursor)
